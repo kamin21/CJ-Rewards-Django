@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block content %}
+<!-- Sección de saludo y bienvenida para el alumno -->
+<div class="mb-8">
+    <h2 class="text-2xl font-bold text-slate-700">Bienvenido, {{ request.user.username }}</h2>
+    <p class="text-slate-500 mt-1">Aquí tienes un resumen de tu actividad en el sistema de recompensas.</p>
+</div>
+
+<!-- Contenedor grid para las tarjetas de resumen del alumno -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <!-- Tarjeta 1: Monedero Virtual Vibrante (Reemplaza al texto plano por un degradado interactivo) -->
+    <div class="bg-gradient-to-br from-emerald-400 to-teal-500 rounded-2xl shadow-xl p-8 flex flex-col relative overflow-hidden text-white transform hover:-translate-y-1 hover:shadow-2xl transition-all duration-300">
+        <!-- Elementos decorativos de iluminación en el fondo de la tarjeta (uso de blur extremo) -->
+        <div class="absolute -right-10 -top-10 bg-white/20 w-40 h-40 rounded-full blur-2xl"></div>
+        <div class="absolute -left-10 -bottom-10 bg-black/10 w-32 h-32 rounded-full blur-xl"></div>
+        
+        <div class="relative z-10 flex justify-between items-center w-full mb-4">
+            <h4 class="text-sm font-bold text-emerald-50 uppercase tracking-widest flex items-center gap-2">
+                <svg class="w-5 h-5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+                Mi Monedero
+            </h4>
+            <span class="text-[10px] bg-white/20 backdrop-blur-sm text-white px-3 py-1 rounded-lg uppercase tracking-wider font-bold shadow-sm">Activo</span>
+        </div>
+        
+        <div class="relative z-10 mt-2">
+            <p class="text-5xl font-black drop-shadow-md tracking-tight">{{ puntos|default:"0" }} <span class="text-xl font-semibold text-emerald-100 tracking-normal">pts</span></p>
+        </div>
+    </div>
+
+    <!-- Tarjeta 2: Muestra el total de actividades (Méritos) -->
+    <div class="bg-white rounded-2xl shadow-md border border-slate-100 p-8 flex flex-col relative overflow-hidden group hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+        <!-- Forma geométrica de fondo que se expande al pasar el ratón por encima (group-hover:scale-125) -->
+        <div class="absolute right-0 top-0 w-32 h-32 bg-indigo-50 rounded-bl-full z-0 transition-transform duration-500 group-hover:scale-125 opacity-50"></div>
+        
+        <h4 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-6 relative z-10">Méritos Totales</h4>
+        <p class="text-6xl font-black text-slate-800 mb-2 relative z-10">{{ tareas_listas|default:"0" }}</p>
+        
+        <div class="mt-auto pt-4 relative z-10">
+            <span class="text-xs font-bold text-indigo-600 bg-indigo-50 px-4 py-1.5 rounded-full border border-indigo-100 shadow-sm">Actividades validadas</span>
+        </div>
+    </div>
+</div>
+{% endblock %}

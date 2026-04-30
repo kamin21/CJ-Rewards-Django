@@ -1,0 +1,17 @@
+# Ignorar todo lo que no necesita Vercel
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+node_modules/
+.vercel/
+.DS_Store
+.vscode/
+.idea/
+.env
+.env.local
+.env.*
+
+# IMPORTANTE: NO ignorar db.sqlite3 aquí
+# Vercel necesita la base de datos para leer los usuarios registrados

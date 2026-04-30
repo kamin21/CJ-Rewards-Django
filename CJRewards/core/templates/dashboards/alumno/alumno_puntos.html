@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% block content %}
+<!-- Sección del título para la vista de historial de puntos -->
+<div class="mb-8">
+    <h2 class="text-2xl font-bold text-slate-700">Mi Historial de Puntos</h2>
+    <p class="text-slate-500 mt-1">Consulta el origen de tus puntos y en qué los has invertido.</p>
+</div>
+
+<!-- Contenedor grid para dividir el historial en ganados y gastados -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Sección / Tabla: Historial de puntos ganados por el alumno -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="border-t-4 border-emerald-400 p-4 border-b border-slate-100 bg-emerald-50/30">
+            <h3 class="text-sm font-bold text-emerald-600 uppercase tracking-wider">📈 Puntos Ganados</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-slate-600">
+                <thead class="bg-slate-50 text-slate-500 border-b border-slate-200">
+                    <tr><th class="px-5 py-3 font-medium">Concepto</th><th class="px-5 py-3 font-medium text-right">Valor</th></tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for item in historial_ganados %}
+                    <tr class="hover:bg-slate-50">
+                        <td class="px-5 py-4 font-medium text-slate-700">{{ item.concepto }} <span class="text-[10px] bg-slate-100 text-slate-500 ml-2 px-2 py-0.5 rounded">{{ item.tipo }}</span></td>
+                        <td class="px-5 py-4 text-right font-bold text-emerald-500">+{{ item.puntos }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="2" class="px-5 py-8 text-center text-slate-400">Aún no has ganado puntos.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Sección / Tabla: Historial de puntos gastados en la tienda -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="border-t-4 border-rose-400 p-4 border-b border-slate-100 bg-rose-50/30">
+            <h3 class="text-sm font-bold text-rose-600 uppercase tracking-wider">📉 Puntos Gastados</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-slate-600">
+                <thead class="bg-slate-50 text-slate-500 border-b border-slate-200">
+                    <tr><th class="px-5 py-3 font-medium">Recompensa</th><th class="px-5 py-3 font-medium text-right">Gasto</th></tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for canje in historial_gastados %}
+                    <tr class="hover:bg-slate-50">
+                        <td class="px-5 py-4 font-medium text-slate-700">{{ canje.recompensa }}</td>
+                        <td class="px-5 py-4 text-right font-bold text-rose-500">-{{ canje.puntos_gastados }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="2" class="px-5 py-8 text-center text-slate-400">No has realizado canjeos todavía.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

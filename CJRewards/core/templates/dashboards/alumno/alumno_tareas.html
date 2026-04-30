@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- Encabezado de la vista del tablón de actividades -->
+<div class="mb-10 flex flex-col md:flex-row justify-between md:items-end gap-4">
+    <div>
+        <h2 class="text-3xl font-black text-slate-800 tracking-tight">Tablón de Misiones</h2>
+        <p class="text-slate-500 mt-2 font-medium">Acepta retos, ayuda al centro y gana puntos para tu monedero.</p>
+    </div>
+</div>
+
+<!-- Contenedor Grid (Sustituye a la antigua tabla plana) -->
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+    <!-- Bucle que recorre las tareas disponibles que se envían desde la vista de Django -->
+    {% for tarea in tareas_disponibles %}
+
+    <!-- Tarjeta de Misión tipo Trello/Kanban -->
+    <div
+        class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col relative group hover:-translate-y-1 hover:shadow-xl transition-all duration-300">
+
+        <!-- Decoración superior dinámica según el estado -->
+        {% if tarea.estado == 'En proceso' %}
+        <div class="h-2 w-full bg-gradient-to-r from-amber-400 to-orange-500"></div>
+        {% else %}
+        <div class="h-2 w-full bg-gradient-to-r from-emerald-400 to-teal-500"></div>
+        {% endif %}
+
+        <div class="p-6 flex-1 flex flex-col">
+            <!-- Badges y Puntos -->
+            <div class="flex justify-between items-start mb-4">
+                {% if tarea.estado == 'En proceso' %}
+                <span
+                    class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-200 uppercase tracking-widest shadow-sm">
+                    <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                    Tu Misión Actual
+                </span>
+                {% else %}
+                <span
+                    class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200 uppercase tracking-widest shadow-sm">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    Disponible
+                </span>
+                {% endif %}
+
+                <span class="text-xl font-black bg-gradient-to-br from-indigo-500 to-violet-500 bg-clip-text text-transparent">+{{ tarea.puntos }} <span class="text-xs font-bold uppercase tracking-widest text-indigo-300">pts</span></span>
+            </div>
+
+            <!-- Contenido del Reto -->
+            <h3
+                class="text-xl font-bold text-slate-800 mb-2 leading-tight group-hover:text-indigo-600 transition-colors">
+                {{ tarea.titulo }}</h3>
+            <p class="text-sm text-slate-500 leading-relaxed mb-6">{{ tarea.descripcion }}</p>
+
+            <!-- Botonera de Acción -->
+            <div class="mt-auto">
+                {% if tarea.estado == 'Disponible' %}
+                <a href="{% url 'solicitar_tarea' tarea.id %}"
+                    class="w-full flex justify-center items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-md hover:shadow-lg transform active:scale-95 text-sm uppercase tracking-wide">
+                    <span>Aceptar Reto</span>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                            d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+                    </svg>
+                </a>
+                {% else %}
+                <button
+                    class="w-full flex justify-center items-center gap-2 bg-amber-50 text-amber-600 border border-amber-200 font-bold py-3 px-4 rounded-xl cursor-not-allowed text-sm shadow-sm"
+                    disabled>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span>Misión en Curso</span>
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Estado Vacío (Zero State) -->
+    {% empty %}
+    <div
+        class="col-span-full bg-white rounded-3xl shadow-sm border border-slate-100 p-16 text-center flex flex-col items-center">
+        <div class="bg-slate-50 p-6 rounded-full mb-6">
+            <svg class="w-16 h-16 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2">
+                </path>
+            </svg>
+        </div>
+        <h3 class="text-2xl font-bold text-slate-700 mb-2">Sin misiones disponibles</h3>
+        <p class="text-slate-500 max-w-md">El tablón está vacío en este momento. Vuelve más tarde cuando Secretaría
+            publique nuevos retos.</p>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

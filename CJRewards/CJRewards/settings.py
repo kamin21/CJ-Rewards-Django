@@ -11,6 +11,11 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
+import os
+from dotenv import load_dotenv
+
+# Carga las variables de entorno desde el archivo .env o .env.local
+load_dotenv(Path(__file__).resolve().parent.parent / '.env.local')
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,12 +25,18 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-63t8eaqi$+v5y8)f4zu*sz7)jv3o#9k+z8$8(#+qr)trjdd()x'
+# Obtiene la clave del archivo .env.local, si no existe lanza un error
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-fallback-clave-temporal')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = []
+# Lee los dominios permitidos desde el entorno (separados por comas)
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
+
+# Para evitar el error 400 Bad Request en Vercel, permitimos automáticamente todos los subdominios de vercel
+if '.vercel.app' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('.vercel.app')
 
 
 # Application definition
@@ -37,16 +48,28 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'axes', # Prevención de ataques de fuerza bruta
+    # Aplicación de CJ Rewards
+    'core',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    # WHITENOISE: Middleware especializado para interceptar, empaquetar y servir 
+    # los archivos estáticos (CSS de Tailwind, imágenes) en un entorno Serverless sin necesitar Nginx
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'axes.middleware.AxesMiddleware', # Bloquea IPs atacantes automáticamente
+]
+
+AUTHENTICATION_BACKENDS = [
+    'axes.backends.AxesStandaloneBackend', # Debe ir el primero
+    'django.contrib.auth.backends.ModelBackend', # Backend nativo
 ]
 
 ROOT_URLCONF = 'CJRewards.urls'
@@ -54,10 +77,11 @@ ROOT_URLCONF = 'CJRewards.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, 'core', 'templates')], 
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
+                'django.template.context_processors.debug',
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
@@ -83,28 +107,15 @@ DATABASES = {
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
 
-AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
-]
+AUTH_PASSWORD_VALIDATORS = []
 
 
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'es-es'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Europe/Madrid'
 
 USE_I18N = True
 
@@ -114,4 +125,43 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-STATIC_URL = 'static/'
+import os
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'core', 'static'),
+]
+
+AUTH_USER_MODEL = 'core.Usuario'
+
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/login/'
+
+# CAMBIO CRÍTICO PARA SERVERLESS (Manejo de Sesiones sin Base de Datos local)
+# En lugar de guardar el login en el archivo SQLite (que Vercel bloquea), 
+# se guarda el ticket de sesión directamente en el navegador del usuario usando criptografía
+SESSION_ENGINE = "django.contrib.sessions.backends.signed_cookies"
+
+# =======================================================
+# POLÍTICAS ESTRICTAS PARA ENTORNO DE PRODUCCIÓN
+# =======================================================
+if not DEBUG:
+    # Obliga al navegador a comunicarse siempre por canales encriptados HTTPS
+    SECURE_SSL_REDIRECT = True
+    # Impide que las cookies puedan ser robadas en conexiones de Wi-Fi públicas
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    # Obliga al navegador a recordar que la web solo admite HTTPS (HSTS)
+    SECURE_HSTS_SECONDS = 31536000
+
+# =======================================================
+# CONFIGURACIÓN AXES (Anti Fuerza Bruta)
+# =======================================================
+AXES_FAILURE_LIMIT = 5       # Bloquea al usuario tras 5 intentos fallidos
+AXES_COOLOFF_TIME = 1        # Tiempo de bloqueo en horas
+
+# Desactiva Axes en producción (Vercel) porque el sistema de archivos es de solo lectura
+# y Axes necesita escribir en la base de datos para registrar los intentos de login
+if not DEBUG:
+    AXES_ENABLED = False

@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block content %}
+<!-- Encabezado de la tienda y muestra el saldo de puntos disponibles -->
+<div class="mb-8 flex flex-col md:flex-row justify-between md:items-end gap-4">
+    <div>
+        <h2 class="text-2xl font-bold text-slate-700">Tienda CJ-Rewards</h2>
+        <p class="text-slate-500 mt-1">Canjea tus puntos por recompensas.</p>
+    </div>
+    <div class="bg-violet-50 border border-violet-100 px-4 py-3 rounded-lg shadow-sm">
+        <span class="text-sm text-violet-600 font-medium">Tu saldo:</span>
+        <strong class="text-xl text-violet-700 ml-1">{{ puntos }} pts</strong>
+    </div>
+</div>
+
+
+<!-- Contenedor principal de los premios disponibles (Grid de tarjetas) -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+    <!-- Bucle de Django: Itera sobre todas las recompensas cargadas desde Firebase -->
+    {% for premio in recompensas %}
+    <!-- Tarjeta de Premio individual: Efecto 3D al hacer Hover (levantamiento y sombra profunda) -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col relative group hover:-translate-y-2 hover:shadow-2xl transition-all duration-300">
+        <!-- Barra de color superior (Detalle estético) -->
+        <div class="h-2 w-full bg-gradient-to-r from-violet-500 to-fuchsia-500"></div>
+        <!-- Etiqueta flotante de Stock absoluto en la esquina superior derecha -->
+        <div class="absolute top-5 right-4 z-10">
+            {% if premio.stock > 0 %}
+            <span class="bg-white/90 backdrop-blur text-emerald-600 border border-emerald-100 shadow-sm text-[10px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest">Quedan {{ premio.stock }}</span>
+            {% else %}
+            <span class="bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wide">Agotado</span>
+            {% endif %}
+        </div>
+        <div class="p-6 flex-1 flex flex-col items-center text-center mt-6">
+            <h3 class="text-xl font-bold text-slate-800 mb-2 group-hover:text-violet-600 transition-colors">{{ premio.titulo }}</h3>
+            <p class="text-4xl font-black bg-gradient-to-br from-violet-600 to-fuchsia-500 bg-clip-text text-transparent my-4">{{ premio.coste_puntos }} <span class="text-sm text-slate-400 font-bold tracking-widest uppercase">pts</span></p>
+        </div>
+        <!-- Sección de botones de acción en la base de la tarjeta -->
+        <div class="p-5 bg-slate-50/50 border-t border-slate-50">
+            {% if premio.stock <= 0 %}
+            <button class="w-full bg-slate-100 text-slate-400 border border-slate-200 font-bold py-3 rounded-xl cursor-not-allowed text-sm" disabled>Sin existencias</button>
+            {% elif puntos < premio.coste_puntos %}
+            <button class="w-full bg-slate-100 text-slate-400 border border-slate-200 font-bold py-3 rounded-xl cursor-not-allowed text-sm" disabled>Puntos Insuficientes</button>
+            {% else %}
+            <!-- Botón Dinámico: Efecto click físico (active:scale-95) y gradiente de marca -->
+            <a href="{% url 'canjear_recompensa' premio.id %}" class="block w-full bg-gradient-to-r from-violet-500 to-fuchsia-500 hover:from-violet-600 hover:to-fuchsia-600 text-white font-bold py-3 rounded-xl text-center transition-all shadow-md hover:shadow-xl transform active:scale-95 text-sm uppercase tracking-wide">Canjear Premio</a>
+            {% endif %}
+        </div>
+    </div>
+    <!-- Caso cuando no hay recompensas publicadas en el sistema -->
+    {% empty %}
+    <div class="col-span-full bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center">
+        <h3 class="text-lg font-medium text-slate-600">Aún no hay premios disponibles.</h3>
+        <p class="text-slate-400 text-sm mt-1">¡Dile a Secretaría que añada algunos al catálogo!</p>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
