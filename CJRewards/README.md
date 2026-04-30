@@ -1,73 +1,116 @@
-# CJ-Rewards
+# CJ-Rewards 🏆
 
-Sistema de gestión de recompensas escolares basado en Django con integración a Firebase. Permite a los alumnos ganar puntos realizando tareas o mediante calificaciones, para luego canjearlos en una tienda de premios. Todo administrado por profesores y secretaría.
+Sistema de gamificación escolar construido con Django y Firebase. Los alumnos ganan puntos completando tareas y obteniendo buenas calificaciones, para luego canjearlos por premios en una tienda virtual. Gestionado por profesores y secretaría.
 
 ## Requisitos Previos
-- **Python 3.8+**
+- **Python 3.10+**
 - **Git**
-- **Node.js** (Opcional, en caso de necesitar recompilar estilos con Tailwind u otras dependencias listadas en `package.json`).
+- Una cuenta de **Firebase** con un proyecto de Firestore activo.
 
 ---
 
 ## Instalación y Configuración
 
-Sigue estos pasos para instalar y preparar el proyecto en un nuevo dispositivo.
-
 ### 1. Clonar el repositorio
-Abre una terminal y clona el repositorio desde GitHub:
 ```bash
-git clone <URL_DE_TU_REPOSITORIO_EN_GITHUB>
-cd "CJ-Rewards Django/CJRewards" # Ajusta el nombre de la carpeta según corresponda
+git clone <URL_DEL_REPOSITORIO>
+cd CJRewards
 ```
 
 ### 2. Crear y Activar un Entorno Virtual
-Para no causar conflictos con otros proyectos, crea un entorno virtual de Python:
 ```bash
 python -m venv venv
 ```
-Activa el entorno virtual:
 - **Windows:** `venv\Scripts\activate`
 - **macOS / Linux:** `source venv/bin/activate`
 
 ### 3. Instalar Dependencias
-Instala todas las librerías necesarias de Python utilizando el archivo `requirements.txt`:
 ```bash
 pip install -r requirements.txt
 ```
-*(Si necesitas las dependencias de Node.js, ejecuta también `npm install`)*.
 
-### 4. Variables de Entorno y Firebase
-El proyecto utiliza variables de entorno y conexión a Firebase para funcionar correctamente:
-1. Asegúrate de tener un archivo **`.env`** o **`.env.local`** en la raíz del proyecto (a la misma altura que `manage.py`). Debe contener las credenciales de tu proyecto (como `SECRET_KEY`, parámetros de Base de Datos si no usas SQLite, etc.).
-2. **Firebase:** Asegúrate de colocar el archivo JSON con las credenciales de servicio de tu proyecto de Firebase dentro de la carpeta `Firebase_conf/`, con el nombre correcto configurado en tu `settings.py`.
+### 4. Configurar las Variables de Entorno
+Crea un archivo **`.env.local`** en la raíz del proyecto (a la misma altura que `manage.py`) con el siguiente contenido:
+```env
+SECRET_KEY=tu-clave-secreta-de-django
+DEBUG=True
+ALLOWED_HOSTS=127.0.0.1,localhost
+```
+> Para generar una `SECRET_KEY` segura, ejecuta en la terminal:
+> ```bash
+> python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+> ```
 
-### 5. Preparar la Base de Datos
-Ejecuta las migraciones para generar las tablas correspondientes en la base de datos (por defecto SQLite `db.sqlite3`):
+### 5. Configurar Firebase
+1. Ve a la [Consola de Firebase](https://console.firebase.google.com/) y entra en tu proyecto.
+2. Ve a **Configuración del proyecto > Cuentas de servicio > Generar nueva clave privada**.
+3. Descarga el archivo JSON y colócalo en la carpeta `Firebase_conf/` con el nombre:
+   ```
+   Firebase_conf/CJ_Rewards_Credentials.json
+   ```
+
+### 6. Preparar la Base de Datos
 ```bash
 python manage.py makemigrations
 python manage.py migrate
 ```
 
-### 6. Crear un Usuario Administrador
-Para poder acceder a las herramientas globales y al panel general (`/admin`), crea un superusuario:
+### 7. Crear un Superusuario (Admin)
 ```bash
 python manage.py createsuperuser
 ```
-Sigue los pasos que te pedirá la terminal (Nombre de usuario, correo electrónico y contraseña).
+Sigue los pasos de la terminal. **Importante:** al crear el superusuario, entra después al panel de Django Admin (`/admin`) y asígnale el rol `admin` en la sección "Información de Gamificación" para que pueda acceder al Panel de Control Maestro.
 
-### 7. Levantar el Servidor
-Finalmente, inicia el servidor de desarrollo local:
+### 8. Levantar el Servidor
 ```bash
 python manage.py runserver
 ```
-Accede a **http://127.0.0.1:8000/** desde tu navegador web. ¡El sistema de CJ-Rewards estará listo para utilizarse!
+Accede a **http://127.0.0.1:8000/** desde tu navegador.
+
+---
+
+## Despliegue en Vercel
+
+El proyecto está preparado para desplegarse en Vercel **sin necesidad de enlazar el repositorio de GitHub**.
+
+### 1. Instalar Vercel CLI
+```bash
+npm i -g vercel
+```
+
+### 2. Configurar Variables de Entorno en Vercel
+Desde el dashboard de Vercel (Settings > Environment Variables), añade:
+| Variable | Valor |
+|---|---|
+| `SECRET_KEY` | Tu clave secreta de Django |
+| `DEBUG` | `False` |
+| `FIREBASE_CREDENTIALS_JSON` | El contenido completo del archivo JSON de Firebase (pegar todo el texto) |
+
+### 3. Desplegar
+```bash
+vercel --prod
+```
+
+> **Nota:** La base de datos SQLite en Vercel es de **solo lectura**. Para crear o modificar usuarios, hazlo en tu entorno local y vuelve a desplegar con `vercel --prod`.
 
 ---
 
 ## Estructura de Roles
 
-El proyecto cuenta con vistas y flujos distintos de acuerdo al tipo de usuario:
-- **Admin:** Panel maestro para revisar las métricas totales y forzar sincronización con Firebase.
-- **Secretaría:** Gestión del inventario de premios, validación de tareas de los alumnos y auditorías de canjes.
-- **Profesor:** Panel simplificado para asignar notas, lo cual genera recompensas de puntos automáticas al alumnado.
-- **Alumno:** Vista de tienda, tablón de actividades, y el registro de todos sus puntos ganados y gastados.
+| Rol | Funcionalidades |
+|---|---|
+| **Admin** | Panel de Control Maestro con métricas globales y registro de logs de acceso (almacenados en Firebase). |
+| **Secretaría** | Publicación de tareas, gestión de premios en la tienda, validación de méritos y auditoría de canjes. |
+| **Profesor** | Asignación de notas académicas que generan puntos de forma automática según las reglas de negocio. |
+| **Alumno** | Tablón de misiones, tienda de premios, monedero virtual e historial de puntos ganados y gastados. |
+
+---
+
+## Tecnologías Utilizadas
+
+- **Backend:** Django 6.0
+- **Base de Datos Local:** SQLite (usuarios y autenticación)
+- **Base de Datos en la Nube:** Firebase Cloud Firestore (tareas, premios, puntos, logs)
+- **Frontend:** Tailwind CSS (CDN), HTML5
+- **Seguridad:** django-axes (entorno local), sistema de logs propio en Firebase (producción)
+- **Despliegue:** Vercel (Serverless)
