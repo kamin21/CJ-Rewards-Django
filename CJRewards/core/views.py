@@ -1,3 +1,16 @@
+"""
+views.py — Controladores HTTP de la aplicación CJ-Rewards.
+
+Cada función recibe un HttpRequest de Django y devuelve un HttpResponse
+(normalmente renderizando un template HTML o redirigiendo a otra URL).
+
+Arquitectura de seguridad por capas:
+  1. @login_required  → Verifica que el usuario haya iniciado sesión.
+  2. @rol_requerido   → Verifica que su rol tenga acceso a esa sección.
+  3. Lógica interna   → Comprueba la integridad de los datos antes de actuar.
+
+Flujo de datos: Request → View → GestorCJRewards (Firebase) → Template.
+"""
 import os
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
@@ -39,16 +52,18 @@ def redireccion_dashboard(request):
 # 2. Vistas del Rol: Alumno (Carpeta: dashboards/alumno/)
 
 @login_required(login_url='/login/')
-# El decorador personalizado rechaza el acceso si el rol no coincide
 @rol_requerido(roles_permitidos=['alumno'])
 def dashboard_alumno(request):
-    """Vista principal (Resumen) del alumno."""
+    """
+    Vista principal del alumno: muestra su saldo actual y un contador rápido
+    de tareas completadas para el resumen del dashboard.
+    """
     username = request.user.username
+    historial = db_manager.obtener_historial_puntos(username)
     context = {
         'puntos': db_manager.obtener_puntos_alumno(username),
-        'tareas_listas': len([t for t in db_manager.obtener_historial_puntos(username) if t.get('tipo') == 'Tarea Finalizada'])
+        'tareas_listas': sum(1 for t in historial if t.get('tipo') == 'Tarea Finalizada')
     }
-    # Nueva ruta: dashboards/alumno/alumno.html
     return render(request, 'dashboards/alumno/alumno.html', context)
 
 @login_required(login_url='/login/')
@@ -104,19 +119,21 @@ def catalogo_recompensas(request):
 @login_required(login_url='/login/')
 @rol_requerido(roles_permitidos=['alumno'])
 def canjear_recompensa(request, recompensa_id):
-    """Procesamiento de transacciones seguras con aviso de último stock."""
+    """
+    Procesa un canje de puntos. La lógica transaccional (comprobar saldo,
+    restar puntos, decrementar stock) ocurre en gestor_firebase.py.
+    Si fue el último item del stock, muestra un aviso especial al alumno.
+    """
     resultado = db_manager.canjear_recompensa(request.user.username, recompensa_id)
-    
-    if type(resultado) == dict and resultado.get('exito'):
-        # Comprueba la bandera 'fue_ultimo' para lanzar un aviso especial
+
+    if isinstance(resultado, dict) and resultado.get('exito'):
         if resultado.get('fue_ultimo'):
-            # El mensaje especial que querías
-            messages.success(request, "¡Canje realizado con éxito! Te has llevado la ÚLTIMA unidad disponible. El premio ha sido retirado de la tienda.")
+            messages.success(request, "¡Canje realizado! Te has llevado la ÚLTIMA unidad. El premio ha sido retirado de la tienda.")
         else:
             messages.success(request, "¡Canje realizado con éxito!")
     else:
         messages.error(request, "Saldo insuficiente, error en el sistema o recompensa ya agotada.")
-        
+
     return redirect('catalogo_recompensas')
 
 # 3. Vistas del Rol: Profesor (Carpeta: dashboards/profesor/)
@@ -148,11 +165,17 @@ def dashboard_profesor(request):
 
 @login_required
 @rol_requerido(roles_permitidos=['secretaria'])
-@login_required
-@rol_requerido(roles_permitidos=['secretaria'])
 def dashboard_secretaria(request):
-    """Muestra el panel principal unificado con paginación."""
-    # Catálogo normal
+    """
+    Panel principal de secretaría. Agrega en una sola página:
+      - Todas las tareas (paginadas de 10 en 10).
+      - El historial global de canjeos (paginado de 10 en 10).
+      - Las tareas pendientes de validar ('En proceso').
+      - El catálogo actual de recompensas.
+
+    Se usa el Paginator de Django para no cargar en memoria listas
+    muy grandes de un solo golpe.
+    """
     recompensas = db_manager.db.collection('recompensas').stream()
     lista_premios = [doc.to_dict() | {'id': doc.id} for doc in recompensas]
     
@@ -253,15 +276,89 @@ def eliminar_tarea_admin(request, tarea_id):
 def dashboard_admin(request):
     """Control global del sistema con logs de seguridad desde Firebase."""
     logs = db_manager.obtener_logs_acceso(limite=50)
-    total_usuarios = Usuario.objects.count()
+    usuarios = Usuario.objects.all().order_by('-id')
+    total_usuarios = usuarios.count()
     intentos_fallidos = len([l for l in logs if not l.get('exitoso')])
     
     context = {
         'logs_acceso': logs,
+        'usuarios': usuarios,
         'total_usuarios': total_usuarios,
         'intentos_fallidos': intentos_fallidos,
     }
     return render(request, 'dashboards/admin/admin.html', context)
+
+@login_required(login_url='/login/')
+@rol_requerido(roles_permitidos=['admin'])
+def crear_usuario_admin(request):
+    """
+    Crea un usuario en Django (SQLite) y lo sincroniza con Firebase.
+
+    El usuario se instancia en memoria primero, se le aplica la contraseña
+    hasheada y se guarda con un único INSERT a la base de datos (optimizado
+    para reducir operaciones en SQLite en Vercel).
+    """
+    if request.method == 'POST':
+        username = request.POST.get('username')
+        email    = request.POST.get('email')
+        password = request.POST.get('password')
+        first_name = request.POST.get('first_name')
+        last_name  = request.POST.get('last_name')
+        rol        = request.POST.get('rol')
+
+        try:
+            if Usuario.objects.filter(username=username).exists():
+                messages.error(request, "El nombre de usuario ya existe.")
+            else:
+                # Instanciar en memoria, hashear la contraseña y un único save()
+                user = Usuario(
+                    username=username,
+                    email=email,
+                    first_name=first_name,
+                    last_name=last_name,
+                    rol=rol
+                )
+                user.set_password(password)
+                user.save()
+
+                # Sincronizar el registro también en Firebase
+                db_manager.crear_usuario(username, email, rol)
+
+                messages.success(request, f"Usuario {username} creado exitosamente.")
+        except Exception as e:
+            messages.error(request, f"Error al crear usuario: {e}")
+
+    return redirect('dashboard_admin')
+
+@login_required(login_url='/login/')
+@rol_requerido(roles_permitidos=['admin'])
+def eliminar_usuario_admin(request, usuario_id):
+    """
+    Elimina un usuario del sistema de forma consistente en tres pasos:
+      1. Libera sus tareas en Firebase (vuelven a estado 'Disponible').
+      2. Borra su documento de la colección 'usuarios' en Firestore.
+      3. Elimina su cuenta del sistema de autenticación de Django (SQLite).
+
+    El orden es importante: si Django fallara en el paso 3, Firebase ya
+    estaría limpio. El proceso no elimina el historial de notas ni de
+    canjeos para mantener la trazabilidad de auditoría.
+    """
+    if request.method == 'POST':
+        try:
+            user = Usuario.objects.get(id=usuario_id)
+            username = user.username
+
+            db_manager.liberar_tareas_usuario(username)   # Paso 1
+            db_manager.eliminar_usuario(username)         # Paso 2
+            user.delete()                                 # Paso 3
+
+            messages.success(request, f"Usuario {username} eliminado exitosamente.")
+        except Usuario.DoesNotExist:
+            messages.error(request, "El usuario no existe.")
+        except Exception as e:
+            messages.error(request, f"Error al eliminar usuario: {e}")
+
+    return redirect('dashboard_admin')
 
 # 6. Login personalizado con registro de logs en Firebase
 
@@ -276,6 +373,13 @@ def login_con_logs(request):
         
         # Obtener la IP real del usuario (compatible con proxies y Vercel)
         ip = request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip() or request.META.get('REMOTE_ADDR', 'Desconocida')
+        
+        # --- NUEVO: RATE LIMITING ---
+        if not db_manager.comprobar_rate_limit(ip, limite=5, minutos=10):
+            messages.error(request, "Cuenta bloqueada temporalmente por demasiados intentos fallidos. Inténtalo de nuevo en 10 minutos.")
+            from django.contrib.auth.forms import AuthenticationForm
+            return render(request, 'login.html', {'form': AuthenticationForm(request, data=request.POST)})
+        # ----------------------------
         
         user = authenticate(request, username=username, password=password)
         
