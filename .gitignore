@@ -1,0 +1,47 @@
+# =========================
+# Entornos Virtuales
+# =========================
+.venv/
+venv/
+env/
+
+# =========================
+# Python / Django
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+db.sqlite3
+db.sqlite3-journal
+staticfiles/
+media/
+
+# =========================
+# Credenciales y Secretos 
+# =========================
+.env
+.env.local
+.env.*
+# Ignorar todos los JSON de la carpeta Firebase_conf (tus credenciales reales)
+Firebase_conf/*.json
+# Excepción: PERMITIR que se suban los archivos de ejemplo
+!Firebase_conf/*.example.json
+
+# =========================
+# Node.js / Frontend
+# =========================
+node_modules/
+# Nota: package.json y package-lock.json NO se ignoran, deben subirse.
+
+# =========================
+# Vercel (Despliegue)
+# =========================
+.vercel/
+
+# =========================
+# Sistema Operativo y Editores
+# =========================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
