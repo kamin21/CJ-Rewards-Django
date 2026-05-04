@@ -45,5 +45,5 @@ urlpatterns = [
     # Se usa el prefijo /dashboard/admin/ para no colisionar con /admin/ de Django
     path('dashboard/admin/',                                     views.dashboard_admin,          name='dashboard_admin'),
     path('dashboard/admin/crear-usuario/',                       views.crear_usuario_admin,      name='crear_usuario_admin'),
-    path('dashboard/admin/eliminar-usuario/<int:usuario_id>/',   views.eliminar_usuario_admin,   name='eliminar_usuario_admin'),
+    path('dashboard/admin/eliminar-usuario/<str:username>/', views.eliminar_usuario_admin, name='eliminar_usuario_admin'),
 ]

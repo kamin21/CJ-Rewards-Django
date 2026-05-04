@@ -47,17 +47,22 @@ class GestorCJRewards:
 
     # 1. Gestión de usuarios y sistema (Admin / Automático)
 
-    def crear_usuario(self, uid, email, rol="alumno"):
-        """Crea un usuario en la colección correspondiente con su saldo inicial."""
-        # Se define la referencia al documento usando el ID único (username)
+    def crear_usuario(self, uid, email, rol="alumno", password_hash=None, first_name="", last_name=""):
+        """Crea un usuario en la colección correspondiente con sus datos completos."""
         usuario_ref = self.db.collection('usuarios').document(uid)
-        # Se insertan los datos básicos. Todos empiezan con 0 puntos por seguridad
-        usuario_ref.set({
+        data = {
             'email': email,
             'rol': rol,
-            'puntos_acumulados': 0
-        })
+            'puntos_acumulados': 0,
+            'first_name': first_name,
+            'last_name': last_name
+        }
+        if password_hash:
+            data['password'] = password_hash
+            
+        usuario_ref.set(data, merge=True)
         return True
+
 
     def eliminar_usuario(self, uid):
         """Elimina un usuario de la colección en Firebase."""

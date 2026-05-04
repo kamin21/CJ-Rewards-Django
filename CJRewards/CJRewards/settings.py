@@ -48,7 +48,6 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'axes', # Prevención de ataques de fuerza bruta
     # Aplicación de CJ Rewards
     'core',
 ]
@@ -64,11 +63,10 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'axes.middleware.AxesMiddleware', # Bloquea IPs atacantes automáticamente
 ]
 
 AUTHENTICATION_BACKENDS = [
-    'axes.backends.AxesStandaloneBackend', # Debe ir el primero
+    'core.auth_backend.FirebaseBackend', # Backend híbrido Firebase-SQLite
     'django.contrib.auth.backends.ModelBackend', # Backend nativo
 ]
 
@@ -156,12 +154,8 @@ if not DEBUG:
     SECURE_HSTS_SECONDS = 31536000
 
 # =======================================================
-# CONFIGURACIÓN AXES (Anti Fuerza Bruta)
+# PROTECCIÓN ANTI FUERZA BRUTA (Sustituto de Axes para Vercel)
 # =======================================================
-AXES_FAILURE_LIMIT = 5       # Bloquea al usuario tras 5 intentos fallidos
-AXES_COOLOFF_TIME = 1        # Tiempo de bloqueo en horas
+# La protección se gestiona en gestor_firebase.py mediante comprobar_rate_limit,
+# evitando escrituras en el sistema de archivos de solo lectura de Vercel.
 
-# Desactiva Axes en producción (Vercel) porque el sistema de archivos es de solo lectura
-# y Axes necesita escribir en la base de datos para registrar los intentos de login
-if not DEBUG:
-    AXES_ENABLED = False

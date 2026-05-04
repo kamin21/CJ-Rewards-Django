@@ -141,25 +141,39 @@ def canjear_recompensa(request, recompensa_id):
 @login_required(login_url='/login/')
 @rol_requerido(roles_permitidos=['profesor'])
 def dashboard_profesor(request):
-    """Gestión académica de notas."""
-    # Extrae solo los alumnos de la BD relacional para listarlos en el formulario
-    alumnos = Usuario.objects.filter(rol='alumno')
+    """Gestión académica de notas. Incluye alumnos de SQLite y Firebase."""
+    # 1. Alumnos de SQLite
+    alumnos_dj = list(Usuario.objects.filter(rol='alumno'))
+    usernames_dj = {u.username for u in alumnos_dj}
+    
+    # 2. Alumnos de Firebase (Vercel)
+    alumnos_combinados = alumnos_dj
+    try:
+        # Buscamos en Firebase usuarios con rol 'alumno' que no estén en SQLite
+        docs = db_manager.db.collection('usuarios').where('rol', '==', 'alumno').stream()
+        for doc in docs:
+            username = doc.id
+            if username not in usernames_dj:
+                # Objeto simple para el select del template
+                alumnos_combinados.append({'username': username})
+    except Exception as e:
+        print(f"Error al traer alumnos de Firebase: {e}")
 
     if request.method == 'POST':
-        alumno_id = request.POST.get('alumno_id')
+        alumno_id = request.POST.get('alumno_id') # Es el username
         asignatura = request.POST.get('asignatura')
         nota = float(request.POST.get('nota'))
 
         puntos_ganados = db_manager.procesar_nota_academica(alumno_id, asignatura, nota)
         if puntos_ganados:
-            messages.success(request, f"¡Nota guardada! Sumados {puntos_ganados} pts.")
+            messages.success(request, "¡Nota guardada correctamente!")
         else:
-            messages.warning(request, "Nota guardada, pero no suma puntos.")
+            messages.warning(request, "Nota guardada correctamente.")
             
         return redirect('dashboard_profesor')
 
-    # Nueva ruta: dashboards/profesor/profesor.html
-    return render(request, 'dashboards/profesor/profesor.html', {'alumnos': alumnos})
+    return render(request, 'dashboards/profesor/profesor.html', {'alumnos': alumnos_combinados})
+
 
 # 4. Vistas del Rol: Secretaría (Carpeta: dashboards/secretaria/)
 
@@ -274,30 +288,64 @@ def eliminar_tarea_admin(request, tarea_id):
 @login_required(login_url='/login/')
 @rol_requerido(roles_permitidos=['admin'])
 def dashboard_admin(request):
-    """Control global del sistema con logs de seguridad desde Firebase."""
+    """
+    Control global del sistema. 
+    Combina usuarios de SQLite y Firebase para asegurar que todos sean visibles en Vercel.
+    """
     logs = db_manager.obtener_logs_acceso(limite=50)
-    usuarios = Usuario.objects.all().order_by('-id')
-    total_usuarios = usuarios.count()
+    
+    # 1. Obtener usuarios de SQLite
+    usuarios_dj = list(Usuario.objects.all())
+    usernames_dj = {u.username for u in usuarios_dj}
+    
+    # 2. Obtener usuarios de Firebase que no estén en SQLite
+    usuarios_combinados = usuarios_dj
+    
+    class VirtualUser:
+        def __init__(self, username, email, rol, first_name="", last_name=""):
+            self.username = username
+            self.email = email
+            self.rol = rol
+            self.first_name = first_name
+            self.last_name = last_name
+            self.is_active = True
+            self.is_staff = (rol == 'admin')
+        def get_rol_display(self):
+            roles_dict = dict(Usuario.ROLES)
+            return roles_dict.get(self.rol, self.rol)
+
+    try:
+        docs = db_manager.db.collection('usuarios').stream()
+        for doc in docs:
+            data = doc.to_dict()
+            username = doc.id
+            if username not in usernames_dj:
+                usuarios_combinados.append(VirtualUser(
+                    username=username,
+                    email=data.get('email', 'N/A'),
+                    rol=data.get('rol', 'alumno'),
+                    first_name=data.get('first_name', ''),
+                    last_name=data.get('last_name', '')
+                ))
+    except Exception as e:
+        print(f"Error al traer usuarios de Firebase: {e}")
+
+    total_usuarios = len(usuarios_combinados)
     intentos_fallidos = len([l for l in logs if not l.get('exitoso')])
     
     context = {
         'logs_acceso': logs,
-        'usuarios': usuarios,
+        'usuarios': usuarios_combinados,
         'total_usuarios': total_usuarios,
         'intentos_fallidos': intentos_fallidos,
     }
     return render(request, 'dashboards/admin/admin.html', context)
 
+
 @login_required(login_url='/login/')
 @rol_requerido(roles_permitidos=['admin'])
 def crear_usuario_admin(request):
-    """
-    Crea un usuario en Django (SQLite) y lo sincroniza con Firebase.
-
-    El usuario se instancia en memoria primero, se le aplica la contraseña
-    hasheada y se guarda con un único INSERT a la base de datos (optimizado
-    para reducir operaciones en SQLite en Vercel).
-    """
+    """Crea un usuario en el sistema con contraseña en texto plano para Firebase."""
     if request.method == 'POST':
         username = request.POST.get('username')
         email    = request.POST.get('email')
@@ -310,7 +358,6 @@ def crear_usuario_admin(request):
             if Usuario.objects.filter(username=username).exists():
                 messages.error(request, "El nombre de usuario ya existe.")
             else:
-                # Instanciar en memoria, hashear la contraseña y un único save()
                 user = Usuario(
                     username=username,
                     email=email,
@@ -318,13 +365,25 @@ def crear_usuario_admin(request):
                     last_name=last_name,
                     rol=rol
                 )
-                user.set_password(password)
-                user.save()
+                # Guardamos la contraseña en TEXTO PLANO según solicitado
+                user.password = password 
+                try:
+                    user.save()
+                    messages.success(request, "Usuario creado correctamente.")
+                except Exception:
+                    # Fallback para Vercel
+                    from .signals import get_db_manager
+                    manager = get_db_manager()
+                    manager.crear_usuario(
+                        uid=username, 
+                        email=email, 
+                        rol=rol, 
+                        password_hash=password,
+                        first_name=first_name,
+                        last_name=last_name
+                    )
+                    messages.success(request, "Usuario creado correctamente.")
 
-                # Sincronizar el registro también en Firebase
-                db_manager.crear_usuario(username, email, rol)
-
-                messages.success(request, f"Usuario {username} creado exitosamente.")
         except Exception as e:
             messages.error(request, f"Error al crear usuario: {e}")
 
@@ -332,33 +391,32 @@ def crear_usuario_admin(request):
 
 @login_required(login_url='/login/')
 @rol_requerido(roles_permitidos=['admin'])
-def eliminar_usuario_admin(request, usuario_id):
+def eliminar_usuario_admin(request, username):
     """
-    Elimina un usuario del sistema de forma consistente en tres pasos:
-      1. Libera sus tareas en Firebase (vuelven a estado 'Disponible').
-      2. Borra su documento de la colección 'usuarios' en Firestore.
-      3. Elimina su cuenta del sistema de autenticación de Django (SQLite).
-
-    El orden es importante: si Django fallara en el paso 3, Firebase ya
-    estaría limpio. El proceso no elimina el historial de notas ni de
-    canjeos para mantener la trazabilidad de auditoría.
+    Elimina un usuario del sistema (Django y Firebase).
+    Soporta eliminación por username para usuarios virtuales de Firebase.
     """
     if request.method == 'POST':
         try:
-            user = Usuario.objects.get(id=usuario_id)
-            username = user.username
+            # 1. Intentar borrar de Django (SQLite) si existe
+            try:
+                user = Usuario.objects.get(username=username)
+                user.delete()
+                messages.success(request, "Usuario eliminado correctamente.")
+            except (Usuario.DoesNotExist, Exception):
+                # 2. Si no existe en SQLite o es de solo lectura, borrar de Firebase
+                from .signals import get_db_manager
+                manager = get_db_manager()
+                manager.liberar_tareas_usuario(username)
+                manager.eliminar_usuario(username)
+                messages.success(request, "Usuario eliminado correctamente.")
 
-            db_manager.liberar_tareas_usuario(username)   # Paso 1
-            db_manager.eliminar_usuario(username)         # Paso 2
-            user.delete()                                 # Paso 3
 
-            messages.success(request, f"Usuario {username} eliminado exitosamente.")
-        except Usuario.DoesNotExist:
-            messages.error(request, "El usuario no existe.")
         except Exception as e:
             messages.error(request, f"Error al eliminar usuario: {e}")
 
     return redirect('dashboard_admin')
+
 
 # 6. Login personalizado con registro de logs en Firebase
 
