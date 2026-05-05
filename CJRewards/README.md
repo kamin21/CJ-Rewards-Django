@@ -41,7 +41,7 @@ El proyecto sigue una **arquitectura híbrida de doble base de datos**:
 
 ### 1. Clonar el repositorio
 ```bash
-git clone <URL_DEL_REPOSITORIO>
+git clone https://github.com/kamin21/CJ-Rewards-Django.git
 cd CJRewards
 ```
 
