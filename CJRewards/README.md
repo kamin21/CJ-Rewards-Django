@@ -99,6 +99,69 @@ Accede a **http://127.0.0.1:8000/**
 
 ---
 
+## Gestión de Usuarios desde Consola
+
+El sistema utiliza una arquitectura híbrida: al crear un usuario en Django, los `signals` lo sincronizan automáticamente con Firebase.
+
+### 1. Crear un Administrador (Superusuario)
+El comando estándar de Django crea un usuario con acceso al panel `/admin/`.
+```bash
+python manage.py createsuperuser
+```
+**Nota:** Tras crearlo, accede al panel `/admin/` y asegúrate de que su campo **rol** sea `admin` para habilitar el Dashboard Maestro.
+
+### 2. Crear Usuarios por Rol (Shell)
+Para crear otros tipos de usuario rápidamente, usa la consola de Django:
+
+```bash
+python manage.py shell
+```
+
+Ejemplos de creación:
+
+```python
+from core.models import Usuario
+
+# Crear un Profesor
+Usuario.objects.create_user(
+    username='profe_juan', 
+    email='juan@cole.es', 
+    password='clave_segura', 
+    rol='profesor'
+)
+
+# Crear un Alumno
+Usuario.objects.create_user(
+    username='alumno_ana', 
+    email='ana@cole.es', 
+    password='clave_segura', 
+    rol='alumno'
+)
+
+# Crear un usuario de Secretaría
+Usuario.objects.create_user(
+    username='secretaria_lucia', 
+    email='lucia@cole.es', 
+    password='clave_segura', 
+    rol='secretaria'
+)
+
+# Crear un Administrador (vía shell)
+Usuario.objects.create_user(
+    username='admin_boss',
+    email='admin@cole.es',
+    password='clave_maestra',
+    rol='admin',
+    is_staff=True,
+    is_superuser=True
+)
+```
+
+### 3. Sincronización Automática
+Los usuarios creados desde la consola se reflejarán inmediatamente en la colección `usuarios` de Firebase Firestore con `puntos_acumulados: 0`.
+
+---
+
 ## Despliegue en Vercel (Producción Serverless)
 
 El proyecto está preparado para Vercel. El sistema de archivos de Vercel es de **solo lectura**, por lo que se han realizado adaptaciones específicas:
